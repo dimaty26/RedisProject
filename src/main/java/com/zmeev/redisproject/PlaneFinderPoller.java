@@ -1,8 +1,8 @@
 package com.zmeev.redisproject;
 
-import com.thehecklers.planefinder.Aircraft;
+import com.zmeev.redisproject.model.Aircraft;
+import com.zmeev.redisproject.repository.AircraftRepository;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -15,12 +15,12 @@ public class PlaneFinderPoller {
     private WebClient webClient = WebClient.create("http://localhost:7634/aircraft");
 
     private final RedisConnectionFactory redisConnectionFactory;
-    private final RedisOperations<String, Aircraft> redisOperations;
+    private final AircraftRepository aircraftRepository;
 
     public PlaneFinderPoller(RedisConnectionFactory redisConnectionFactory,
-                             RedisOperations<String, Aircraft> redisOperations) {
+                             AircraftRepository aircraftRepository) {
         this.redisConnectionFactory = redisConnectionFactory;
-        this.redisOperations = redisOperations;
+        this.aircraftRepository = aircraftRepository;
     }
 
     @Scheduled(fixedRate = 1000)
@@ -32,11 +32,8 @@ public class PlaneFinderPoller {
                 .bodyToFlux(Aircraft.class)
                 .filter(plane -> !plane.getReg().isEmpty())
                 .toStream()
-                .forEach(ac -> redisOperations.opsForValue().set(ac.getReg(), ac));
+                .forEach(aircraftRepository::save);
 
-        redisOperations.opsForValue()
-                .getOperations()
-                .keys("*")
-                .forEach(ac -> System.out.println(redisOperations.opsForValue().get(ac)));
+        aircraftRepository.findAll().forEach(System.out::println);
     }
 }
